@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime, date
 from typing import Optional
+from enum import Enum
 
 
 class TaskBase(BaseModel):
@@ -17,7 +18,14 @@ class TaskUpdate(BaseModel):
     title:Optional[str]=None
     description:Optional[str]=None
     priority:Optional[str]=None
-    dur_date:Optional[date]=None
+    due_date:Optional[date]=None
+
+class TaskStatus(str, Enum):
+    pending = "pending"
+    in_progress = "in_progress"
+    completed = "completed"
+    blocked = "blocked"
+
 
 class TaskResponse(TaskBase):
     id:int

@@ -36,6 +36,7 @@ def login(db:Session, email:str, password:str):
     }
 
 def get_all_user(db :Session):
+    
     return db.query(User).all()
 
 def get_user_by_id(db:Session, user_id:int):

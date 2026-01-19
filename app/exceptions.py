@@ -20,7 +20,7 @@ async def general_exception_handler(request:Request, exc:Exception):
         content={
             "success":False,
             "error":{
-                        "type":"servererror",
-                        "message":"caught an unexpected server error.please try again later."
+                "type":"servererror",
+                "message":"caught an unexpected server error.please try again later."
                     }        }
     )
