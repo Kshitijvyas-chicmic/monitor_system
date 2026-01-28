@@ -9,4 +9,8 @@ APP_PORT = int(os.getenv("APP_PORT", 8000))
 DATABASE_URL=os.getenv("DATABASE_URL")
 JWT_SECRET_KEY=os.getenv("JWT_SECTRET_KEY")
 JWT_ALGORITHM=os.getenv("JWT_ALGORITHM")
+SMTP_EMAIL = os.getenv("SMTP_EMAIL")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
 

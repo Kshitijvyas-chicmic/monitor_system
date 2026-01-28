@@ -3,57 +3,673 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Internal Task Tracking</title>
+    <title>Monitor System - API Testing Dashboard</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <h1>Task Tracking System</h1>
+    <div class="container">
+      <!-- Header -->
+      <header class="header">
+        <h1 class="main-title">Monitor System</h1>
+        <p class="subtitle">Complete API Testing Dashboard</p>
+      </header>
 
-    <!-- Registration -->
-    <section id="register-section">
-      <h2>Register</h2>
-      <input type="text" id="reg-username" placeholder="Username" />
-      <input type="password" id="reg-password" placeholder="Password" />
-      <select id="reg-role">
-        <option value="employee">Employee</option>
-        <option value="manager">Manager</option>
-        <option value="admin">Admin</option>
-      </select>
-      <button onclick="register()">Register</button>
-    </section>
+      <!-- Authentication Section -->
+      <section class="auth-section">
+        <!-- Login Card (Default) -->
+        <div class="card auth-card" id="login-card">
+          <h2 class="card-title">Sign In</h2>
+          <form class="auth-form">
+            <div class="form-group">
+              <label for="login-email">Email Address</label>
+              <input
+                type="email"
+                id="login-email"
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="login-password">Password</label>
+              <input
+                type="password"
+                id="login-password"
+                placeholder="Enter your password"
+                required
+              />
+            </div>
+            <button type="submit" class="btn btn-secondary" onclick="login()">
+              Sign In
+            </button>
+          </form>
+          <div class="auth-switch">
+            <p>
+              Don't have an account?
+              <button class="btn-link" onclick="showRegister()">
+                Create Account
+              </button>
+            </p>
+          </div>
+        </div>
 
-    <!-- Login -->
-    <section id="login-section">
-      <h2>Login</h2>
-      <input type="text" id="login-username" placeholder="Username" />
-      <input type="password" id="login-password" placeholder="Password" />
-      <button onclick="login()">Login</button>
-    </section>
+        <!-- Registration Card (Hidden by default) -->
+        <div class="card auth-card" id="register-card" style="display: none">
+          <h2 class="card-title">Create Account</h2>
+          <form class="auth-form">
+            <div class="form-group">
+              <label for="reg-email">Email Address</label>
+              <input
+                type="email"
+                id="reg-email"
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="reg-name">Full Name</label>
+              <input
+                type="text"
+                id="reg-name"
+                placeholder="Enter your full name"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="reg-password">Password</label>
+              <input
+                type="password"
+                id="reg-password"
+                placeholder="Create a password"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="reg-role">Role</label>
+              <select id="reg-role" required>
+                <option value="employee">Employee</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-primary" onclick="register()">
+              Create Account
+            </button>
+          </form>
+          <div class="auth-switch">
+            <p>
+              Already have an account?
+              <button class="btn-link" onclick="showLogin()">Sign In</button>
+            </p>
+          </div>
+        </div>
+      </section>
 
-    <!-- Task Management -->
-    <section id="task-section" style="display: none">
-      <h2>Tasks</h2>
-      <div>
-        <input type="text" id="task-title" placeholder="Task Title" />
-        <textarea id="task-desc" placeholder="Task Description"></textarea>
-        <select id="task-status">
-          <option value="open">Open</option>
-          <option value="in_progress">In Progress</option>
-          <option value="blocked">Blocked</option>
-          <option value="completed">Completed</option>
-        </select>
-        <select id="task-priority">
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-        </select>
-        <input type="text" id="task-assignee" placeholder="Assignee Username" />
-        <button onclick="createTask()">Create Task</button>
-      </div>
+      <!-- Main Application Section -->
+      <section id="app-section" class="app-section" style="display: none">
+        <!-- Dashboard Header -->
+        <div class="dashboard-header">
+          <div class="user-info">
+            <h2>Welcome back, <span id="user-name"></span></h2>
+            <span class="user-role" id="user-role"></span>
+          </div>
+          <button onclick="logout()" class="btn btn-outline">Logout</button>
+        </div>
 
-      <h3>All Tasks</h3>
-      <ul id="task-list"></ul>
-    </section>
+        <!-- User Management Section (Admin Only) -->
+        <div id="user-management" class="section-card" style="display: none">
+          <h3 class="section-title">User Management</h3>
+
+          <div class="action-buttons">
+            <button onclick="listUsers()" class="btn btn-info">
+              List All Users
+            </button>
+          </div>
+
+          <div class="results-container">
+            <ul id="users-list" class="item-list"></ul>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-card">
+              <h4>Get User by ID</h4>
+              <div class="form-group">
+                <input
+                  type="number"
+                  id="get-user-id"
+                  placeholder="Enter User ID"
+                  required
+                />
+              </div>
+              <button onclick="getUserById()" class="btn btn-primary">
+                Get User
+              </button>
+              <div id="user-details" class="results-container"></div>
+            </div>
+
+            <div class="form-card">
+              <h4>Update User</h4>
+              <div class="form-group">
+                <input
+                  type="number"
+                  id="update-user-id"
+                  placeholder="User ID"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <input
+                  type="text"
+                  id="update-name"
+                  placeholder="New Name"
+                  required
+                />
+              </div>
+              <button onclick="updateUser()" class="btn btn-warning">
+                Update User
+              </button>
+            </div>
+
+            <div class="form-card">
+              <h4>Delete User</h4>
+              <div class="form-group">
+                <input
+                  type="number"
+                  id="delete-user-id"
+                  placeholder="User ID"
+                  required
+                />
+              </div>
+              <button onclick="deleteUser()" class="btn btn-danger">
+                Delete User
+              </button>
+            </div>
+
+            <div class="form-card">
+              <h4>Change Password</h4>
+              <div class="form-group">
+                <input
+                  type="number"
+                  id="change-pwd-user-id"
+                  placeholder="User ID"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <input
+                  type="password"
+                  id="old-password"
+                  placeholder="Old Password"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <input
+                  type="password"
+                  id="new-password"
+                  placeholder="New Password"
+                  required
+                />
+              </div>
+              <button onclick="changePassword()" class="btn btn-warning">
+                Change Password
+              </button>
+            </div>
+
+            <div class="form-card">
+              <h4>Change Role</h4>
+              <div class="form-group">
+                <input
+                  type="number"
+                  id="role-user-id"
+                  placeholder="User ID"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <select id="new-role" required>
+                  <option value="employee">Employee</option>
+                  <option value="manager">Manager</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <button onclick="changeRole()" class="btn btn-warning">
+                Change Role
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reports Section (Admin Only) -->
+        <!-- Reports Section (Admin Only) -->
+        <div id="reports-section" class="section-card" style="display: none">
+          <h3 class="section-title">Reports</h3>
+
+          <div class="action-buttons">
+            <button
+              type="button"
+              onclick="downloadReportPDF(event)"
+              class="btn btn-success"
+            >
+              📄 Download PDF Report
+            </button>
+          </div>
+
+          <div class="results-container">
+            <p class="info-text">
+              Generate and download a comprehensive PDF report containing task
+              statistics, user workload distribution, and system analytics.
+            </p>
+            <div
+              id="report-status"
+              class="status-message"
+              style="display: none"
+            ></div>
+          </div>
+        </div>
+
+        <!-- Task Management Section -->
+        <div id="task-management" class="section-card">
+          <h3 class="section-title">Task Management</h3>
+
+          <div class="form-grid">
+            <div class="form-card">
+              <h4>Create New Task</h4>
+              <div class="form-group">
+                <input
+                  type="text"
+                  id="task-title"
+                  placeholder="Task Title"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <textarea
+                  id="task-description"
+                  placeholder="Task Description"
+                  rows="3"
+                ></textarea>
+              </div>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <select id="task-priority" required>
+                    <option value="low">Low Priority</option>
+                    <option value="medium">Medium Priority</option>
+                    <option value="high">High Priority</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <select id="task-status" required>
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="blocked">Blocked</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-grid-2">
+                <div class="form-group">
+                  <input
+                    type="email"
+                    id="task-assignee"
+                    placeholder="Assignee Email"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <input type="date" id="task-due-date" />
+                </div>
+              </div>
+              <button onclick="createTask()" class="btn btn-success">
+                Create Task
+              </button>
+            </div>
+          </div>
+
+          <div class="task-lists">
+            <div class="task-section">
+              <h4>My Tasks</h4>
+              <button onclick="fetchMyTasks()" class="btn btn-primary">
+                Load My Tasks
+              </button>
+              <ul id="my-tasks" class="item-list"></ul>
+            </div>
+
+            <div
+              id="admin-task-section"
+              class="task-section"
+              style="display: none"
+            >
+              <h4>All Tasks</h4>
+              <button onclick="fetchAllTasks()" class="btn btn-primary">
+                Load All Tasks
+              </button>
+              <ul id="all-tasks" class="item-list"></ul>
+            </div>
+          </div>
+
+          <div id="admin-task-controls" style="display: none">
+            <div class="form-grid">
+              <div class="form-card">
+                <h4>Get Task by ID</h4>
+                <div class="form-group">
+                  <input
+                    type="number"
+                    id="get-task-id"
+                    placeholder="Task ID"
+                    required
+                  />
+                </div>
+                <button onclick="getTaskById()" class="btn btn-info">
+                  Get Task
+                </button>
+                <div id="task-details" class="results-container"></div>
+              </div>
+
+              <div class="form-card">
+                <h4>Update Task</h4>
+                <div class="form-group">
+                  <input
+                    type="number"
+                    id="update-task-id"
+                    placeholder="Task ID"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <input
+                    type="text"
+                    id="update-task-title"
+                    placeholder="New Title"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <textarea
+                    id="update-task-description"
+                    placeholder="New Description"
+                    rows="3"
+                  ></textarea>
+                </div>
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <select id="update-task-priority" required>
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <input type="date" id="update-task-due-date" />
+                  </div>
+                </div>
+                <button onclick="updateTask()" class="btn btn-warning">
+                  Update Task
+                </button>
+              </div>
+
+              <div class="form-card">
+                <h4>Update Task Status</h4>
+                <div class="form-group">
+                  <input
+                    type="number"
+                    id="status-task-id"
+                    placeholder="Task ID"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <select id="new-status" required>
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="blocked">Blocked</option>
+                  </select>
+                </div>
+                <button onclick="updateTaskStatus()" class="btn btn-warning">
+                  Update Status
+                </button>
+              </div>
+
+              <div class="form-card">
+                <h4>Reassign Task</h4>
+                <div class="form-group">
+                  <input
+                    type="number"
+                    id="reassign-task-id"
+                    placeholder="Task ID"
+                    required
+                  />
+                </div>
+                <div class="form-group">
+                  <input
+                    type="number"
+                    id="new-assignee-id"
+                    placeholder="New Assignee User ID"
+                    required
+                  />
+                </div>
+                <button onclick="reassignTask()" class="btn btn-warning">
+                  Reassign Task
+                </button>
+              </div>
+
+              <div class="form-card">
+                <h4>Delete Task</h4>
+                <div class="form-group">
+                  <input
+                    type="number"
+                    id="delete-task-id"
+                    placeholder="Task ID"
+                    required
+                  />
+                </div>
+                <button onclick="deleteTask()" class="btn btn-danger">
+                  Delete Task
+                </button>
+              </div>
+
+              <div class="form-card">
+                <h4>Filter Tasks</h4>
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <select id="filter-status">
+                      <option value="">All Status</option>
+                      <option value="pending">Pending</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="completed">Completed</option>
+                      <option value="blocked">Blocked</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <select id="filter-priority">
+                      <option value="">All Priority</option>
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <input
+                      type="number"
+                      id="filter-assigned-to"
+                      placeholder="Assigned To User ID"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <select id="sort-by">
+                      <option value="created_at">Created At</option>
+                      <option value="due_date">Due Date</option>
+                      <option value="priority">Priority</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-grid-2">
+                  <div class="form-group">
+                    <select id="order">
+                      <option value="desc">Descending</option>
+                      <option value="asc">Ascending</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <input
+                      type="number"
+                      id="page"
+                      placeholder="Page"
+                      value="1"
+                    />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <input
+                    type="number"
+                    id="page-size"
+                    placeholder="Page Size"
+                    value="10"
+                  />
+                </div>
+                <button onclick="filterTasks()" class="btn btn-info">
+                  Filter Tasks
+                </button>
+                <div id="filtered-tasks" class="filter-results"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Comments Section -->
+        <div id="comments-section" class="section-card">
+          <h3 class="section-title">Comments</h3>
+
+          <div class="form-grid">
+            <div class="form-card">
+              <h4>Add Comment</h4>
+              <div class="form-group">
+                <input
+                  type="number"
+                  id="comment-task-id"
+                  placeholder="Task ID"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <textarea
+                  id="comment-content"
+                  placeholder="Comment Content"
+                  rows="3"
+                  required
+                ></textarea>
+              </div>
+              <button onclick="addComment()" class="btn btn-success">
+                Add Comment
+              </button>
+            </div>
+
+            <div class="form-card">
+              <h4>Manage Comments</h4>
+              <button onclick="listComments()" class="btn btn-info">
+                List All Comments
+              </button>
+              <div class="results-container">
+                <ul id="comments-list" class="item-list"></ul>
+              </div>
+            </div>
+
+            <div class="form-card">
+              <h4>Update Comment</h4>
+              <div class="form-group">
+                <input
+                  type="number"
+                  id="update-comment-id"
+                  placeholder="Comment ID"
+                  required
+                />
+              </div>
+              <div class="form-group">
+                <textarea
+                  id="update-comment-content"
+                  placeholder="New Content"
+                  rows="3"
+                  required
+                ></textarea>
+              </div>
+              <button onclick="updateComment()" class="btn btn-warning">
+                Update Comment
+              </button>
+            </div>
+
+            <div class="form-card">
+              <h4>Delete Comment</h4>
+              <div class="form-group">
+                <input
+                  type="number"
+                  id="delete-comment-id"
+                  placeholder="Comment ID"
+                  required
+                />
+              </div>
+              <button onclick="deleteComment()" class="btn btn-danger">
+                Delete Comment
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Activities Section -->
+        <div id="activities-section" class="section-card" style="display: none">
+          <h3 class="section-title">Activity Logs</h3>
+
+          <div class="action-buttons">
+            <button onclick="listAllActivities()" class="btn btn-info">
+              List All Activities
+            </button>
+          </div>
+
+          <div class="results-container">
+            <ul id="all-activities" class="item-list"></ul>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-card">
+              <h4>Get Activities for Task</h4>
+              <div class="form-group">
+                <input
+                  type="number"
+                  id="activity-task-id"
+                  placeholder="Task ID"
+                  required
+                />
+              </div>
+              <button onclick="getTaskActivities()" class="btn btn-primary">
+                Get Task Activities
+              </button>
+              <div class="results-container">
+                <ul id="task-activities" class="item-list"></ul>
+              </div>
+            </div>
+
+            <div class="form-card">
+              <h4>Get Activities for User</h4>
+              <div class="form-group">
+                <input
+                  type="number"
+                  id="activity-user-id"
+                  placeholder="User ID"
+                  required
+                />
+              </div>
+              <button onclick="getUserActivities()" class="btn btn-primary">
+                Get User Activities
+              </button>
+              <div class="results-container">
+                <ul id="user-activities" class="item-list"></ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
 
     <script src="script.js"></script>
   </body>
