@@ -20,20 +20,192 @@ if (token && currentUser) {
   showLogin();
 }
 
+// async function register() {
+//   event.preventDefault();
+//   const email = document.getElementById("reg-email").value;
+//   const name = document.getElementById("reg-name").value;
+//   const password = document.getElementById("reg-password").value;
+//   const role = document.getElementById("reg-role").value;
+
+//   const response = await fetch(`${API_BASE}/auth/signup`, {
+//     method: "POST",
+//     headers: { "Content-Type": "application/json" },
+//     body: JSON.stringify({ email, name, password, role }),
+//   });
+//   const data = await response.json();
+//   alert(response.ok ? "Registered successfully!" : `Error: ${data.detail}`);
+// }
+// async function register() {
+//   event.preventDefault();
+//   const email = document.getElementById("reg-email").value;
+//   const name = document.getElementById("reg-name").value;
+//   const password = document.getElementById("reg-password").value;
+//   const role = document.getElementById("reg-role").value;
+
+//   const response = await fetch(`${API_BASE}/auth/signup`, {
+//     method: "POST",
+//     headers: { "Content-Type": "application/json" },
+//     body: JSON.stringify({ email, name, password, role }),
+//   });
+//   const data = await response.json();
+
+//   if (response.ok) {
+//     alert("Registered successfully! Please verify your email.");
+//     // Hide login & register cards
+//     document.getElementById("login-card").style.display = "none";
+//     document.getElementById("register-card").style.display = "none";
+
+//     // Show verification section
+//     document.getElementById("verify-email-section").style.display = "block";
+
+//     // Pre-fill email in verification form
+//     document.getElementById("verify-email-input").value = email;
+//   } else {
+//     alert(`Error: ${data.detail}`);
+//   }
+// }
+
+// async function verifyEmail() {
+//   const email = document.getElementById("verify-email-input").value;
+//   const token = document.getElementById("verify-token-input").value;
+
+//   if (!email || !token) {
+//     alert("Please provide both email and token.");
+//     return;
+//   }
+
+//   try {
+//     const response = await fetch(`${API_BASE}/auth/verify-email`, {
+//       method: "POST",
+//       headers: {
+//         "Content-Type": "application/json",
+//       },
+//       body: JSON.stringify({ email: email, token: token }),
+//     });
+
+//     const data = await response.json();
+
+//     if (response.ok) {
+//       alert("Email verified successfully!");
+//       // Hide verification form after success
+//       document.getElementById("verify-email-section").style.display = "none";
+//       // Show main app section
+//       document.getElementById("app-section").style.display = "block";
+//     } else {
+//       alert(`Verification failed: ${data.detail}`);
+//     }
+//   } catch (err) {
+//     console.error("Error verifying email:", err);
+//     alert("Something went wrong. Please try again.");
+//   }
+// }
+
+// async function login() {
+//   event.preventDefault();
+//   const email = document.getElementById("login-email").value;
+//   const password = document.getElementById("login-password").value;
+
+//   try {
+//     const response = await fetch(`${API_BASE}/auth/login`, {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify({ email, password }),
+//     });
+//     const data = await response.json();
+
+//     if (response.ok && data.user) {
+//       token = data.access_token;
+//       currentUser = data.user;
+//       localStorage.setItem("token", token);
+//       localStorage.setItem("user", JSON.stringify(currentUser));
+//       showAppSection();
+//     } else {
+//       alert(`Login failed: ${data.detail || "Unknown error"}`);
+//     }
+//   } catch (error) {
+//     console.error("Login error:", error);
+//     alert("Network error. Please try again.");
+//   }
+// }
+
+// async function register() {
+//   event.preventDefault();
+//   const email = document.getElementById("reg-email").value;
+//   const name = document.getElementById("reg-name").value;
+//   const password = document.getElementById("reg-password").value;
+//   const role = document.getElementById("reg-role").value;
+
+//   try {
+//     const response = await fetch(`${API_BASE}/auth/signup`, {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify({ email, name, password, role }),
+//     });
+
+//     const data = await response.json();
+//     // signup success
+//     navigate("/verify-email", {
+//       state: { email: response.email },
+//     });
+
+//     if (response.ok) {
+//       alert(
+//         "Registered successfully! Check your email for verification token.",
+//       );
+
+//       // Show the email verification form
+//       document.getElementById("register-card").style.display = "none";
+//       document.getElementById("verify-email-section").style.display = "block";
+
+//       // Pre-fill the email field for verification
+//       document.getElementById("verify-email-input").value = email;
+//     } else {
+//       alert(`Error: ${data.detail}`);
+//     }
+//   } catch (err) {
+//     console.error("Registration error:", err);
+//     alert("Network error. Please try again.");
+//   }
+// }
+
 async function register() {
   event.preventDefault();
+
   const email = document.getElementById("reg-email").value;
   const name = document.getElementById("reg-name").value;
   const password = document.getElementById("reg-password").value;
   const role = document.getElementById("reg-role").value;
 
-  const response = await fetch(`${API_BASE}/auth/signup`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, name, password, role }),
-  });
-  const data = await response.json();
-  alert(response.ok ? "Registered successfully!" : `Error: ${data.detail}`);
+  try {
+    const response = await fetch(`${API_BASE}/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, name, password, role }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      alert(
+        "Registered successfully! Check your email for verification token.",
+      );
+
+      // 👇 LOGIN & REGISTER HIDE
+      document.getElementById("login-card").style.display = "none";
+      document.getElementById("register-card").style.display = "none";
+
+      // 👇 VERIFY SECTION SHOW
+      document.getElementById("verify-email-section").style.display = "block";
+
+      // 👇 EMAIL AUTO-FILL
+      document.getElementById("verify-email-input").value = email;
+    } else {
+      alert(`Error: ${data.detail}`);
+    }
+  } catch (err) {
+    console.error("Registration error:", err);
+    alert("Network error. Please try again.");
+  }
 }
 
 async function login() {
@@ -47,9 +219,25 @@ async function login() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
+
     const data = await response.json();
 
     if (response.ok && data.user) {
+      // Check if user is verified
+      if (!data.user.is_verified) {
+        alert(
+          "Your email is not verified yet. Please verify your email first.",
+        );
+
+        // Show the verification form
+        document.getElementById("login-card").style.display = "none";
+        document.getElementById("verify-email-section").style.display = "block";
+
+        // Pre-fill email
+        document.getElementById("verify-email-input").value = email;
+        return;
+      }
+
       token = data.access_token;
       currentUser = data.user;
       localStorage.setItem("token", token);
@@ -61,6 +249,39 @@ async function login() {
   } catch (error) {
     console.error("Login error:", error);
     alert("Network error. Please try again.");
+  }
+}
+
+async function verifyEmail() {
+  const email = document.getElementById("verify-email-input").value;
+  const tokenInput = document.getElementById("verify-token-input").value;
+
+  if (!email || !tokenInput) {
+    alert("Please provide both email and token.");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/auth/verify-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, token: tokenInput }),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      alert("Email verified successfully! You can now log in.");
+
+      // Hide verification form and show login form
+      document.getElementById("verify-email-section").style.display = "none";
+      showLogin();
+    } else {
+      alert(`Verification failed: ${data.detail}`);
+    }
+  } catch (err) {
+    console.error("Error verifying email:", err);
+    alert("Something went wrong. Please try again.");
   }
 }
 
@@ -462,9 +683,12 @@ async function listComments() {
 }
 
 async function updateComment() {
-  const taskId = document.getElementById("comment-task-id").value;
+  const taskId = document.getElementById("update-comment-task-id").value;
   const commentId = document.getElementById("update-comment-id").value;
   const content = document.getElementById("update-comment-content").value;
+
+  console.log("Updating comment:", { taskId, commentId, content });
+
   const response = await fetch(
     `${API_BASE}/tasks/${taskId}/comments/${commentId}`,
     {
@@ -476,13 +700,17 @@ async function updateComment() {
       body: JSON.stringify({ content }),
     },
   );
+
   const data = await response.json();
   alert(response.ok ? "Comment updated!" : `Error: ${data.detail}`);
 }
 
 async function deleteComment() {
-  const taskId = document.getElementById("comment-task-id").value;
+  const taskId = document.getElementById("delete-comment-task-id").value;
   const commentId = document.getElementById("delete-comment-id").value;
+
+  console.log("Deleting comment:", { taskId, commentId });
+
   const response = await fetch(
     `${API_BASE}/tasks/${taskId}/comments/${commentId}`,
     {
@@ -490,6 +718,7 @@ async function deleteComment() {
       headers: { Authorization: `Bearer ${token}` },
     },
   );
+
   const data = await response.json();
   alert(response.ok ? "Comment deleted!" : `Error: ${data.detail}`);
 }

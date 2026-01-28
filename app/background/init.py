@@ -1,0 +1,1 @@
+from app.background.deadline_checker import check_deadlines

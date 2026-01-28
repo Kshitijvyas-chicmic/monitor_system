@@ -8,7 +8,7 @@ from app.services.activity_services import log_activity
 from typing import Optional
 from app.services.notification_services import send_task_assignment_email
 from fastapi import BackgroundTasks
-
+from app.core.config_logging import logger
 # Constants
 DEFAULT_STATUS = "pending"
 DEFAULT_PRIORITY = "medium"
@@ -17,15 +17,19 @@ MAX_PAGE_SIZE = 100
 
 # POST /tasks	Task create
 def create_task(db:Session, data:TaskCreate, current_user:int, background_tasks: BackgroundTasks)->Task:
-   try:
+    logger.info("Create task request", extra={"title": data.title, "assigned_to_email": data.assigned_to_email, "created_by": current_user})
+   
     if not data.title:
+        logger.warning("Task creation failed - missing title", extra={"created_by": current_user})
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,detail="task title is required")
     
     if not data.assigned_to_email:
+        logger.warning("Task creation failed - missing assigned user email", extra={"created_by": current_user})
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="assigned user email is required")
     
     assigned_user = db.query(User).filter(User.email == data.assigned_to_email).first()
     if not assigned_user:
+        logger.warning("Task creation failed - assigned user not found", extra={"assigned_to_email": data.assigned_to_email})
         raise HTTPException(status_code= status.HTTP_404_NOT_FOUND, detail="assigned user not found")
 
     new_task= Task(
@@ -42,6 +46,8 @@ def create_task(db:Session, data:TaskCreate, current_user:int, background_tasks:
     db.add(new_task)
     db.commit()
     db.refresh(new_task)
+    logger.info("Task created successfully", extra={"task_id": new_task.id, "assigned_to": assigned_user.id})
+
     log_activity(
         db=db,
         actor_id=current_user,
@@ -50,47 +56,36 @@ def create_task(db:Session, data:TaskCreate, current_user:int, background_tasks:
         entity_id=new_task.id,
         description="New task created"
     )
-    print(f"DEBUG: Task created successfully, sending notification email to {assigned_user.email}")
-    send_task_assignment_email(new_task, assigned_user.email, background_tasks)
-    print(f"DEBUG: Notification email function called")
+    
+    # send_task_assignment_email(new_task, assigned_user.email, background_tasks)
+    logger.info("Task assignment email triggered", extra={"task_id": new_task.id, "assigned_to": assigned_user.email})
     return new_task
-   except Exception as e:
-        raise HTTPException(status_code= 500, detail=f"Internal server error: {str(e)}")
     
     
-
 # GET /tasks	All tasks
 def get_all_tasks(db:Session):
-
-    try:
-        tasks=db.query(Task).all()
-        return tasks
-    except Exception as e:
-        raise HTTPException(status_code= 500, detail=f"Internal server err:{str(e)}")
+    tasks = db.query(Task).all()
+    logger.info("Fetched all tasks", extra={"count": len(tasks)})
+    return tasks
     
-# GET /tasks/my	Logged-in user tasks
-
-
+# GET /tasks/my	Logged-in user task
 def get_users_task(db:Session, assigned_to_id:int):
-    try:
-        tasks= db.query(Task).filter(Task.assigned_to_id == assigned_to_id).all()
-        return tasks
-    except Exception as e:
-         raise HTTPException(status_code= 500, detail=f"Internal server error:{str(e)}")
+    tasks = db.query(Task).filter(Task.assigned_to_id == assigned_to_id).all()
+    logger.info("Fetched tasks for user", extra={"user_id": assigned_to_id, "count": len(tasks)})
+    return tasks
 
 
 def get_task_by_id(db:Session, task_id:int):
-    try:
-        task= db.query(Task).filter(Task.id == task_id).first()
-        if not task:
-            raise HTTPException(status_code=404,detail=f"task not found for id {task_id}")
-        return task
-    except Exception as e:
-        raise HTTPException(status_code= 500, detail=f"Internal server error:{str(e)}")
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        logger.warning("Task not found", extra={"task_id": task_id})
+        raise HTTPException(status_code=404, detail=f"Task not found for id {task_id}")
+    logger.info("Task retrieved", extra={"task_id": task.id})
+    return task
     
 
 def update_task(db:Session, data:TaskUpdate, task_id:int, current_user):
-    try:
+  
         task = get_task_by_id(db,task_id)
         if not task:
              raise HTTPException(status_code=404,detail=f"task not found for id")
@@ -103,6 +98,7 @@ def update_task(db:Session, data:TaskUpdate, task_id:int, current_user):
 
         db.commit()
         db.refresh(task)
+        logger.info("Task updated successfully", extra={"task_id": task.id, "updated_by": current_user.id})
 
         log_activity(
         db=db,
@@ -114,14 +110,13 @@ def update_task(db:Session, data:TaskUpdate, task_id:int, current_user):
     )
         return task
     
-    except Exception as e:
-         raise HTTPException(status_code= 500, detail=f"Internal server error:{str(e)}")
     
 def update_status(db:Session, task_id:int , new_status:TaskStatus, current_user:User):
-    try:
+    
         task = get_task_by_id(db, task_id)
         if current_user.role == "employee":
             if task.assigned_to_id != current_user.id:
+                logger.warning("Employee trying to update unassigned task", extra={"task_id": task.id, "user_id": current_user.id})
                 raise HTTPException(403, "You can update only your assigned task")
         if not task:
          raise HTTPException(status_code=404,detail=f"task not found for id")
@@ -130,6 +125,7 @@ def update_status(db:Session, task_id:int , new_status:TaskStatus, current_user:
 
         db.commit()
         db.refresh(task)
+        logger.info("Task status updated", extra={"task_id": task.id, "status": new_status.value, "updated_by": current_user.id})
 
         log_activity(
         db=db,
@@ -141,16 +137,14 @@ def update_status(db:Session, task_id:int , new_status:TaskStatus, current_user:
     )
 
         return task
-    except Exception as e:
-         raise HTTPException(status_code= 500, detail=f"Internal server error:{str(e)}")
-
 
 
 def reassign_task(db:Session,  task_id:int,new_user_id:int,current_user_id:int ):
-        try:
+       
             task= get_task_by_id(db, task_id)
             if not task:
-                 raise HTTPException(status_code=404, detail="Task not found")
+                logger.warning("Task reassignment failed - new user not found", extra={"task_id": task.id, "new_user_id": new_user_id})
+                raise HTTPException(status_code=404, detail="Task not found")
             
             new_user = db.query(User).filter(User.id == new_user_id).first()
             if not new_user:
@@ -182,20 +176,18 @@ def reassign_task(db:Session,  task_id:int,new_user_id:int,current_user_id:int )
             )
             return task
 
-        except Exception as e:
-         raise HTTPException(status_code= 500, detail=f"Internal server error:{str(e)}")
-
-
 
 # DELETE /tasks/{id}	Delete
 def delete_task(db:Session, task_id:int, current_user:User):
-    try:
+  
         task= get_task_by_id(db,task_id)
         if not task:
             raise HTTPException(status_code=404, detail="Task not found")
         
         db.delete(task)
         db.commit()
+        logger.info("Task deleted successfully", extra={"task_id": task.id, "deleted_by": current_user.id})
+
         log_activity(
         db=db,
         actor_id=current_user.id,
@@ -205,9 +197,6 @@ def delete_task(db:Session, task_id:int, current_user:User):
         description=f"Task IS deleted by {current_user.name}"
         )
         return {"message":"task deleted successfully"}
-
-    except Exception as e:
-         raise HTTPException(status_code= 500, detail=f"Internal server error:{str(e)}")
 
 
 # GET /tasks?filters	Filtering
@@ -244,6 +233,7 @@ def get_filtered_task(db:Session,
     offset = (page - 1) * page_size
     total = query.count()
     tasks = query.offset(offset).limit(page_size).all()
+    logger.info("Filtered tasks fetched", extra={"count": len(tasks), "page": page, "page_size": page_size})
     
     # Convert tasks to dicts
     task_dicts = []
