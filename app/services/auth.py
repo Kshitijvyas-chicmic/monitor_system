@@ -8,31 +8,70 @@ from app.services.activity_services import log_activity
 from fastapi import BackgroundTasks
 from app.services.notification_services import send_welcome_email, send_login_alert_email,send_password_change_email,send_role_change_email, send_verification_email
 from app.core.config_logging import logger
+from app.core.google_auth import verify_google_token
 from app.models.activity_model import ActivityLog
 from app.core.verification_token import generate_verification_token , save_token, verify_token
+from app.core.github_auth import verify_github_code
 
-def sign_up(db:Session, user:UserCreate, background_tasks:BackgroundTasks):
+
+# def sign_up(db:Session, user:UserCreate, background_tasks:BackgroundTasks):
+#     logger.info("Signup request received", extra={"email": user.email})
+#     existing_user = db.query(User).filter(User.email == user.email).first()
+#     if existing_user:
+#         logger.warning("Signup failed - user exists", extra={"email": user.email})
+#         raise HTTPException(status_code= 400,detail = "user already exist")
+    
+#     new_user = User(
+#          name=user.name,
+#         email = user.email,
+#         password=hash_password(user.password),
+#         role = user.role,
+#         is_verified = False
+#     )
+
+#     db.add(new_user)
+#     db.commit()
+#     db.refresh(new_user)
+#     logger.info("User created successfully", extra={"user_id": new_user.id, "email": new_user.email})
+#     token , expiry = generate_verification_token(length=6 , expiry = 5)
+#     save_token(new_user.email, token , expiry)
+#     send_verification_email(new_user.email,token, background_tasks)
+#     log_activity(
+#         db=db,
+#         actor_id=new_user.id,
+#         action="USER_CREATED",
+#         entity_type="USER",
+#         entity_id=new_user.id,
+#         description="New user registered"
+#     )
+#     send_welcome_email(new_user.email, background_tasks, new_user.name)
+#     return new_user
+def sign_up(db: Session, user: UserCreate, background_tasks: BackgroundTasks):
     logger.info("Signup request received", extra={"email": user.email})
-    existing_user = db.query(User).filter(User.email == user.email).first()
-    if existing_user:
+    
+    if db.query(User).filter(User.email == user.email).first():
         logger.warning("Signup failed - user exists", extra={"email": user.email})
-        raise HTTPException(status_code= 400,detail = "user already exist")
+        raise HTTPException(status_code=400, detail="User already exists")
     
     new_user = User(
-         name=user.name,
-        email = user.email,
+        name=user.name,
+        email=user.email,
         password=hash_password(user.password),
-        role = user.role,
-        is_verified = False
+        role=user.role,
+        is_verified=False,
+        provider="local"
     )
-
+    
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    logger.info("User created successfully", extra={"user_id": new_user.id, "email": new_user.email})
-    token , expiry = generate_verification_token(length=6 , expiry = 5)
-    save_token(new_user.email, token , expiry)
-    send_verification_email(new_user.email,token, background_tasks)
+
+    # Verification token
+    token, expiry = generate_verification_token(length=6, expiry=5)
+    save_token(new_user.email, token, expiry)
+    send_verification_email(new_user.email, token, background_tasks)
+    send_welcome_email(new_user.email, background_tasks, new_user.name)
+
     log_activity(
         db=db,
         actor_id=new_user.id,
@@ -41,8 +80,153 @@ def sign_up(db:Session, user:UserCreate, background_tasks:BackgroundTasks):
         entity_id=new_user.id,
         description="New user registered"
     )
-    send_welcome_email(new_user.email, background_tasks, new_user.name)
+    
     return new_user
+
+# ------------------- LOGIN ------------------- #
+def login(db: Session, email: str, password: str, background_tasks: BackgroundTasks):
+    logger.info("Login attempt", extra={"email": email})
+    
+    user = db.query(User).filter(User.email == email).first()
+    if not user or not user.password or not verify_password(password, user.password):
+        logger.warning("Login failed - invalid credentials", extra={"email": email})
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if not user.is_verified:
+        raise HTTPException(status_code=403, detail="Email not verified")
+    
+    token = create_access_token({"sub": str(user.id), "role": user.role})
+    send_login_alert_email(user.email, background_tasks, user.name)
+    
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role,
+            "created_at": user.created_at
+        }
+    }
+
+# ------------------- GOOGLE OAUTH LOGIN ------------------- #
+def google_oauth_login(db: Session, id_token_str: str):
+    """
+    Option 1 approach: No password stored.
+    Verifies Google ID token, creates user if not exists.
+    """
+    # print(id_token_str)
+    # Verify Google token
+    try:
+        id_info = verify_google_token(id_token_str)
+    except Exception as e:
+        logger.warning(f"Google login failed: {str(e)}")
+        raise HTTPException(status_code=401, detail="Invalid Google token")
+
+    email = id_info.get("email")
+    name = id_info.get("name")
+    provider_id = id_info.get("sub")
+
+    if not email:
+        raise HTTPException(status_code=400, detail="Google token missing email")
+
+    # Check or create user
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        user = User(
+            name=name,
+            email=email,
+            password=None,         # No password for Google users
+            role="employee",
+            is_verified=True,
+            provider="google",
+            provider_id=provider_id
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+        log_activity(
+            db=db,
+            actor_id=user.id,
+            action="USER_CREATED",
+            entity_type="USER",
+            entity_id=user.id,
+            description="User registered via Google"
+        )
+
+    # JWT token
+    token = create_access_token({"sub": str(user.id), "role": user.role})
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role,
+            "created_at": user.created_at
+        }
+    }
+
+
+def github_oauth_login(db: Session, code: str):
+    # 1. Verify GitHub code
+    print(code)
+    github_data = verify_github_code(code)
+    print(github_data)
+    email = github_data["email"]
+    name = github_data["name"]
+    provider_id = github_data["provider_id"]
+
+    # 2. Check user
+    user = db.query(User).filter(User.email == email).first()
+
+    if not user:
+        logger.info(f"Creating new user from GitHub login: {email}")
+
+        user = User(
+            name=name,
+            email=email,
+            password=None,
+            role="employee",
+            is_verified=True,
+            provider="github",
+            provider_id=provider_id
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    else:
+        logger.info(f"GitHub login for existing user: {email}")
+    
+    log_activity(
+            db=db,
+            actor_id=user.id,
+            action="USER_CREATED",
+            entity_type="USER",
+            entity_id=user.id,
+            description="User registered via Github"
+        )
+    # 3. Generate JWT
+    token = create_access_token({
+        "sub": str(user.id),
+        "role": user.role
+    })
+    print(token)
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role,
+            "created_at": user.created_at
+        }
+    }
 
 def verify_user_email(db:Session, email:str, token:str):
     logger.info("Email verification attempt", extra={"email": email})
@@ -62,36 +246,36 @@ def verify_user_email(db:Session, email:str, token:str):
     logger.info("Email verified successfully", extra={"user_id": user.id, "email": email})
     return user
 
-def login(db:Session, email:str, password:str, background_tasks:BackgroundTasks):
-    logger.info("Login attempt", extra={"email": email})
-    user = db.query(User).filter(User.email==email).first()
+# def login(db:Session, email:str, password:str, background_tasks:BackgroundTasks):
+#     logger.info("Login attempt", extra={"email": email})
+#     user = db.query(User).filter(User.email==email).first()
 
-    if not user or not verify_password(password , user.password):
-        logger.warning("Login failed - invalid credentials", extra={"email": email})
-        raise HTTPException(status_code= 401, detail="invalid credentials")
+#     if not user or not verify_password(password , user.password):
+#         logger.warning("Login failed - invalid credentials", extra={"email": email})
+#         raise HTTPException(status_code= 401, detail="invalid credentials")
 
-    if not user.is_verified:
-        logger.warning("Login failed - email not verified", extra={"email": email})
-        raise HTTPException(
-            status_code=403, 
-            detail="Email not verified. Please verify your email first."
-        )
+#     if not user.is_verified:
+#         logger.warning("Login failed - email not verified", extra={"email": email})
+#         raise HTTPException(
+#             status_code=403, 
+#             detail="Email not verified. Please verify your email first."
+#         )
 
-    token = create_access_token({"sub":str(user.id)
-                  ,  "role": user.role  })
-    logger.info("Login successful", extra={"user_id": user.id, "email": email})
-    send_login_alert_email(user.email, background_tasks, user.name)   
+#     token = create_access_token({"sub":str(user.id)
+#                   ,  "role": user.role  })
+#     logger.info("Login successful", extra={"user_id": user.id, "email": email})
+#     send_login_alert_email(user.email, background_tasks, user.name)   
 
-    return {
-        "access_token": token,
-        "token_type":"bearer",
-        "user": {
-            "id": user.id,
-            "name": user.name,
-            "email": user.email,
-            "role": user.role
-        }
-    }
+#     return {
+#         "access_token": token,
+#         "token_type":"bearer",
+#         "user": {
+#             "id": user.id,
+#             "name": user.name,
+#             "email": user.email,
+#             "role": user.role
+#         }
+#     }
 
 
 def get_all_user(db :Session):
@@ -206,4 +390,5 @@ def role_change(db:Session,admin_id:int, user_id:int, new_role:str, background_t
     send_role_change_email(user.email, background_tasks, user.name, new_role)
     return user
          
+
 

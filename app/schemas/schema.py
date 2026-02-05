@@ -42,8 +42,18 @@ class UserUpadte(BaseModel):
 
 class UpdateRoleSchema(BaseModel):
     role:str
-
-
 class PasswordChange(BaseModel):
     old_password:str
     new_password:str
+
+class GoogleAuth(BaseModel):
+    id_token: str
+
+class GoogleLoginResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user: UserResponse
+
+class GithubAuth(BaseModel):
+    code: str
+

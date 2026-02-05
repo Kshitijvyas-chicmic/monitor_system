@@ -202,6 +202,7 @@ async function register() {
     } else {
       alert(`Error: ${data.detail}`);
     }
+    verifyEmail();
   } catch (err) {
     console.error("Registration error:", err);
     alert("Network error. Please try again.");
@@ -252,6 +253,119 @@ async function login() {
   }
 }
 
+// Initialize Google Auth on load
+// window.onload = function () {
+//   initializeGoogleAuth();
+// };
+
+async function initializeGoogleAuth() {
+  try {
+    const response = await fetch(`${API_BASE}/auth/google-client-id`);
+    const data = await response.json();
+    console.log(data.client_id);
+    if (data.client_id) {
+      google.accounts.id.initialize({
+        client_id: data.client_id,
+        callback: handleGoogleCredentialResponse,
+      });
+      google.accounts.id.renderButton(
+        document.getElementById("google-btn-container"),
+        { theme: "outline", size: "large", width: "100%" },
+      );
+    }
+  } catch (error) {
+    console.error("Failed to initialize Google Auth:", error);
+  }
+}
+
+async function handleGoogleCredentialResponse(response) {
+  console.log("Google ID Token received:", response.credential);
+  try {
+    const res = await fetch(`${API_BASE}/auth/oauth/google`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id_token: response.credential }),
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.user) {
+      token = data.access_token;
+      currentUser = data.user;
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(currentUser));
+      showAppSection();
+    } else {
+      alert(`Google Login failed: ${data.detail || "Unknown error"}`);
+    }
+  } catch (error) {
+    console.error("Google Login Error", error);
+    alert("Network error during Google Login.");
+  }
+}
+
+async function loginWithGithub() {
+  try {
+    const res = await fetch(`${API_BASE}/auth/github-client-id`);
+    const data = await res.json();
+
+    if (!data.client_id) {
+      alert("GitHub Client ID not found");
+      return;
+    }
+
+    const githubAuthUrl =
+      `https://github.com/login/oauth/authorize` +
+      `?client_id=${data.client_id}` +
+      `&redirect_uri=${encodeURIComponent(
+        "http://127.0.0.1:5500/frontend/index.html",
+      )}` +
+      `&scope=user:email`;
+
+    window.location.href = githubAuthUrl;
+  } catch (error) {
+    console.error("GitHub login error", error);
+  }
+}
+let githubHandled = false;
+
+async function handleGithubCallbackIfPresent() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+
+  if (!code) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/auth/oauth/github`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
+
+    const data = await res.json();
+    console.log("GitHub login response:", data); // 🔥 debug
+
+    if (!res.ok || !data.access_token || !data.user) {
+      alert("GitHub login failed");
+      return;
+    }
+
+    // ✅ SAME AS GOOGLE
+    localStorage.setItem("token", data.access_token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+
+    // ✅ REMOVE ?code= from URL
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+    // 🔥 THIS LINE WAS MISSING / NOT RUNNING
+    setTimeout(() => {
+      showAppSection();
+    }, 0);
+  } catch (err) {
+    console.error("GitHub login error", err);
+  }
+}
+
 async function verifyEmail() {
   const email = document.getElementById("verify-email-input").value;
   const tokenInput = document.getElementById("verify-token-input").value;
@@ -265,23 +379,31 @@ async function verifyEmail() {
     const response = await fetch(`${API_BASE}/auth/verify-email`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email, token: tokenInput }),
+      body: JSON.stringify({ email, token: tokenInput }),
     });
 
     const data = await response.json();
 
-    if (response.ok) {
-      alert("Email verified successfully! You can now log in.");
-
-      // Hide verification form and show login form
-      document.getElementById("verify-email-section").style.display = "none";
-      showLogin();
-    } else {
+    if (!response.ok) {
       alert(`Verification failed: ${data.detail}`);
+      return;
     }
+
+    // ✅ SAVE TOKEN + USER
+    localStorage.setItem("token", data.access_token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+
+    token = data.access_token;
+    currentUser = data.user;
+
+    // ✅ HIDE VERIFY SECTION
+    document.getElementById("verify-email-section").style.display = "none";
+
+    // ✅ OPEN DASHBOARD DIRECTLY
+    showLogin();
   } catch (err) {
-    console.error("Error verifying email:", err);
-    alert("Something went wrong. Please try again.");
+    console.error("Verify email error:", err);
+    alert("Something went wrong");
   }
 }
 
@@ -851,3 +973,7 @@ async function downloadReportPDF(event) {
     statusElement.textContent = "Network error: Unable to download PDF report";
   }
 }
+document.addEventListener("DOMContentLoaded", () => {
+  initializeGoogleAuth();
+  handleGithubCallbackIfPresent();
+});

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Monitor System - API Testing Dashboard</title>
     <link rel="stylesheet" href="style.css" />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
     <div class="container">
@@ -41,6 +42,31 @@
             <button type="submit" class="btn btn-secondary" onclick="login()">
               Sign In
             </button>
+            
+      
+                <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+  
+  <!-- Google Login -->
+  <div id="google-btn-container" style="margin-bottom: 10px;"></div>
+
+  <!-- GitHub Login -->
+  <button
+    type="button"
+    class="btn btn-secondary"
+    style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;"
+    onclick="loginWithGithub()"
+  >
+    <img
+      src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+      alt="GitHub"
+      width="18"
+      height="18"
+    />
+    Continue with GitHub
+  </button>
+
+
+            </div>
           </form>
           <div class="auth-switch">
             <p>
@@ -106,6 +132,7 @@
 <div id="verify-email-section" class="form-card" style="display: none">
   <h4>Verify Your Email</h4>
   <p>Enter the verification token sent to your email.</p>
+
   <div class="form-group">
     <input
       type="email"
@@ -114,6 +141,7 @@
       required
     />
   </div>
+
   <div class="form-group">
     <input
       type="text"
@@ -122,10 +150,12 @@
       required
     />
   </div>
+
   <button onclick="verifyEmail()" class="btn btn-success">
     Verify Email
   </button>
 </div>
+
 
       </section>
 

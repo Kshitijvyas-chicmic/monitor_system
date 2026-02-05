@@ -10,6 +10,9 @@ from fastapi import HTTPException, status
 from app.models.user import User
 from app.core.rate_limiter import limiter
 from fastapi import BackgroundTasks
+from app.schemas.schema import GithubAuth, GoogleLoginResponse
+from app.services.auth import github_oauth_login
+from app.core.config import GITHUB_CLIENT_ID
 
 
 from app.core.role_core import require_roles
@@ -20,6 +23,28 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 @limiter.limit("100/minute")
 def signup_route(request:Request,user: UserCreate,background_tasks: BackgroundTasks,db: Session = Depends(get_db)):
     return sign_up(db, user,background_tasks)
+
+from app.schemas.schema import GoogleAuth, GoogleLoginResponse
+from app.services.auth import google_oauth_login
+from app.core.config import GOOGLE_CLIENT_ID
+
+@router.get("/google-client-id")
+def get_google_client_id():
+    return {"client_id": GOOGLE_CLIENT_ID}
+
+@router.get("/github-client-id")
+def get_github_client_id():
+    return {
+        "client_id": GITHUB_CLIENT_ID
+    }
+@router.post("/oauth/google", response_model=GoogleLoginResponse)
+def google_login(data: GoogleAuth, db: Session = Depends(get_db)):
+    return google_oauth_login(db, data.id_token)
+
+
+@router.post("/oauth/github", response_model=GoogleLoginResponse)
+def github_login(data: GithubAuth, db: Session = Depends(get_db)):
+    return github_oauth_login(db, data.code)
 
 # verify email
 
