@@ -102,6 +102,31 @@
             </p>
           </div>
         </div>
+        <!-- Email Verification Section -->
+<div id="verify-email-section" class="form-card" style="display: none">
+  <h4>Verify Your Email</h4>
+  <p>Enter the verification token sent to your email.</p>
+  <div class="form-group">
+    <input
+      type="email"
+      id="verify-email-input"
+      placeholder="Your Email"
+      required
+    />
+  </div>
+  <div class="form-group">
+    <input
+      type="text"
+      id="verify-token-input"
+      placeholder="Verification Token"
+      required
+    />
+  </div>
+  <button onclick="verifyEmail()" class="btn btn-success">
+    Verify Email
+  </button>
+</div>
+
       </section>
 
       <!-- Main Application Section -->
@@ -579,6 +604,13 @@
             <div class="form-card">
               <h4>Update Comment</h4>
               <div class="form-group">
+    <input
+      type="number"
+      id="update-comment-task-id"
+      placeholder="Task ID"
+      required
+    />
+              <div class="form-group">
                 <input
                   type="number"
                   id="update-comment-id"
@@ -601,6 +633,13 @@
 
             <div class="form-card">
               <h4>Delete Comment</h4>
+              <div class="form-group">
+    <input
+      type="number"
+      id="update-comment-task-id"
+      placeholder="Task ID"
+      required
+    />
               <div class="form-group">
                 <input
                   type="number"

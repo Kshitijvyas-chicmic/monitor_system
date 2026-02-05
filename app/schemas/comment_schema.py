@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datetime import datetime
-
+from typing import Optional
 class CommentCreate(BaseModel):
     content:str
 
@@ -13,7 +13,6 @@ class CommentResponse(BaseModel):
     task_id:int
     user_id:int
     created_at:datetime
-    updated_At:datetime
-
+    updated_at: Optional[datetime] 
     class config:
         from_attributes=True
