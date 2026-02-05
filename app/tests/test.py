@@ -1,28 +1,22 @@
-from app.db.session import SessionLocal, engine
-from app.models.user import User
-from app.db.session import Base
+from fastapi import FastAPI, BackgroundTasks
+from app.services.notification_services import send_task_assignment_email
 
-# 1. Tables create karna (agar pehli baar run kar rahe ho)
-Base.metadata.create_all(bind=engine)
+app = FastAPI()
 
-# 2. Session create karo
-db = SessionLocal()
+@app.post("/test-email")
+def test_email(background_tasks: BackgroundTasks):
+    # Dummy task object
+    class Task:
+        title = "Test Task"
+        description = "This is a test"
+        priority = "High"
+        due_date = "2026-01-28"
+        status = "pending"
 
-# 3. Test user create karo
-new_user = User(
-    email="test@example.com",
-    name="Test User",
-    password="hashedpassword"
-)
+    task = Task()
+    user_email = "YOUR_EMAIL@gmail.com"  # your email for testing
 
-db.add(new_user)
-db.commit()
-db.refresh(new_user)
+    # Call the background email function
+    send_task_assignment_email(task, user_email, background_tasks)
 
-print("User created:", new_user.id, new_user.email)
-
-# 4. Fetch user
-user = db.query(User).filter(User.email == "test@example.com").first()
-print("Fetched User:", user.id, user.email)
-
-db.close()
+    return {"message": "Email scheduled in background"}

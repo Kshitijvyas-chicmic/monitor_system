@@ -1,25 +1,13 @@
-# POST /tasks	Task create
-# GET /tasks	All tasks
-# GET /tasks/{id}	Task detail
-# GET /tasks/my	Logged-in user tasks
-# PUT /tasks/{id}	Update task
-# PATCH /tasks/{id}/status	Update status
-# PATCH /tasks/{id}/assign	Reassign
-# DELETE /tasks/{id}	Delete
-
-# pending
-# GET /tasks?filters	Filtering
-# GET /tasks/{id}/activity	Audit log
-
-
-
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from app.models.task_db import Task
 from app.schemas.task_schema import TaskCreate,TaskUpdate, TaskStatus
 from app.models.user import User
 from datetime import datetime
+from app.services.activity_services import log_activity
 from typing import Optional
+from app.services.notification_services import send_task_assignment_email
+from fastapi import BackgroundTasks
 
 # Constants
 DEFAULT_STATUS = "pending"
@@ -28,24 +16,24 @@ ALLOWED_SORT_FIELDS = {"created_at", "title", "priority", "status", "due_date"}
 MAX_PAGE_SIZE = 100
 
 # POST /tasks	Task create
-def create_task(db:Session, data:TaskCreate ,current_user:int)->Task:
+def create_task(db:Session, data:TaskCreate, current_user:int, background_tasks: BackgroundTasks)->Task:
    try:
     if not data.title:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,detail="task title is required")
     
-    if not data.assigned_to_id:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="assigned user id is required")
+    if not data.assigned_to_email:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="assigned user email is required")
     
-    assigned_user = db.query(User).filter(User.id == data.assigned_to_id).first()
+    assigned_user = db.query(User).filter(User.email == data.assigned_to_email).first()
     if not assigned_user:
         raise HTTPException(status_code= status.HTTP_404_NOT_FOUND, detail="assigned user not found")
 
     new_task= Task(
         title= data.title,
         description= data.description,
-        assigned_to_id= data.assigned_to_id,
+        assigned_to_id= assigned_user.id,
         created_by_id =current_user,
-        status=DEFAULT_STATUS,
+        status= data.status or DEFAULT_STATUS,
         priority=data.priority or DEFAULT_PRIORITY,
         due_date= data.due_date,
         created_at = datetime.utcnow()
@@ -54,6 +42,17 @@ def create_task(db:Session, data:TaskCreate ,current_user:int)->Task:
     db.add(new_task)
     db.commit()
     db.refresh(new_task)
+    log_activity(
+        db=db,
+        actor_id=current_user,
+        action="TASK_CREATED",
+        entity_type="TASK",
+        entity_id=new_task.id,
+        description="New task created"
+    )
+    print(f"DEBUG: Task created successfully, sending notification email to {assigned_user.email}")
+    send_task_assignment_email(new_task, assigned_user.email, background_tasks)
+    print(f"DEBUG: Notification email function called")
     return new_task
    except Exception as e:
         raise HTTPException(status_code= 500, detail=f"Internal server error: {str(e)}")
@@ -69,16 +68,6 @@ def get_all_tasks(db:Session):
     except Exception as e:
         raise HTTPException(status_code= 500, detail=f"Internal server err:{str(e)}")
     
-
-def get_task_by_id(db:Session, task_id:int):
-    try:
-        task= db.query(Task).filter(Task.id == task_id).first()
-        if not task:
-            raise HTTPException(status_code=404,detail=f"task not found for id {task_id}")
-        return task
-    except Exception as e:
-        raise HTTPException(status_code= 500, detail=f"Internal server error:{str(e)}")
-    
 # GET /tasks/my	Logged-in user tasks
 
 
@@ -89,7 +78,18 @@ def get_users_task(db:Session, assigned_to_id:int):
     except Exception as e:
          raise HTTPException(status_code= 500, detail=f"Internal server error:{str(e)}")
 
-def update_task(db:Session, data:TaskUpdate, task_id:int):
+
+def get_task_by_id(db:Session, task_id:int):
+    try:
+        task= db.query(Task).filter(Task.id == task_id).first()
+        if not task:
+            raise HTTPException(status_code=404,detail=f"task not found for id {task_id}")
+        return task
+    except Exception as e:
+        raise HTTPException(status_code= 500, detail=f"Internal server error:{str(e)}")
+    
+
+def update_task(db:Session, data:TaskUpdate, task_id:int, current_user):
     try:
         task = get_task_by_id(db,task_id)
         if not task:
@@ -103,14 +103,26 @@ def update_task(db:Session, data:TaskUpdate, task_id:int):
 
         db.commit()
         db.refresh(task)
+
+        log_activity(
+        db=db,
+        actor_id=current_user.id,
+        action="TASK_UPDATED",
+        entity_type="TASK",
+        entity_id=task.id,
+        description="Task is updated by admin"
+    )
         return task
     
     except Exception as e:
          raise HTTPException(status_code= 500, detail=f"Internal server error:{str(e)}")
     
-def update_status(db:Session, task_id:int , new_status:TaskStatus):
+def update_status(db:Session, task_id:int , new_status:TaskStatus, current_user:User):
     try:
         task = get_task_by_id(db, task_id)
+        if current_user.role == "employee":
+            if task.assigned_to_id != current_user.id:
+                raise HTTPException(403, "You can update only your assigned task")
         if not task:
          raise HTTPException(status_code=404,detail=f"task not found for id")
     
@@ -118,6 +130,16 @@ def update_status(db:Session, task_id:int , new_status:TaskStatus):
 
         db.commit()
         db.refresh(task)
+
+        log_activity(
+        db=db,
+        actor_id=current_user.id,
+        action="STATUS_UPDATED",
+        entity_type="TASK",
+        entity_id=task.id,
+        description="Task status is updated by user"
+    )
+
         return task
     except Exception as e:
          raise HTTPException(status_code= 500, detail=f"Internal server error:{str(e)}")
@@ -150,9 +172,15 @@ def reassign_task(db:Session,  task_id:int,new_user_id:int,current_user_id:int )
 
             db.commit()
             db.refresh(task)
-
+            log_activity(
+                db=db,
+                actor_id=current_user_id,
+                action="TASK_REASSIGNED",
+                entity_type="TASK",
+                entity_id=task.id,
+                description=f"Task reassigned from user {old_assignee} to {new_user_id}"
+            )
             return task
-
 
         except Exception as e:
          raise HTTPException(status_code= 500, detail=f"Internal server error:{str(e)}")
@@ -160,7 +188,7 @@ def reassign_task(db:Session,  task_id:int,new_user_id:int,current_user_id:int )
 
 
 # DELETE /tasks/{id}	Delete
-def delete_task(db:Session, task_id:int):
+def delete_task(db:Session, task_id:int, current_user:User):
     try:
         task= get_task_by_id(db,task_id)
         if not task:
@@ -168,6 +196,14 @@ def delete_task(db:Session, task_id:int):
         
         db.delete(task)
         db.commit()
+        log_activity(
+        db=db,
+        actor_id=current_user.id,
+        action="TASK_DELETED",
+        entity_type="TASK",
+        entity_id=task.id,
+        description=f"Task IS deleted by {current_user.name}"
+        )
         return {"message":"task deleted successfully"}
 
     except Exception as e:
@@ -175,7 +211,6 @@ def delete_task(db:Session, task_id:int):
 
 
 # GET /tasks?filters	Filtering
-
 
 def get_filtered_task(db:Session,
                       status:Optional[str]=None,
@@ -210,10 +245,26 @@ def get_filtered_task(db:Session,
     total = query.count()
     tasks = query.offset(offset).limit(page_size).all()
     
+    # Convert tasks to dicts
+    task_dicts = []
+    for task in tasks:
+        task_dicts.append({
+            "id": task.id,
+            "title": task.title,
+            "description": task.description,
+            "priority": task.priority,
+            "status": task.status,
+            "assigned_to_id": task.assigned_to_id,
+            "created_by_id": task.created_by_id,
+            "created_at": task.created_at,
+            "due_date": task.due_date
+        })
+    
     return {
-        "tasks": tasks,
+        "tasks": task_dicts,
         "total": total,
         "page": page,
         "page_size": page_size,
         "total_pages": (total + page_size - 1) // page_size
     }
+

@@ -21,15 +21,4 @@ class Task(Base):
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    assigned_to = relationship(
-        "User",
-        foreign_keys=[assigned_to_id],
-        backref="assigned_tasks"
-    )
-
-    created_by = relationship(
-        "User",
-        foreign_keys=[created_by_id],
-        backref="created_tasks"
-    )
+    
